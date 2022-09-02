@@ -1,6 +1,4 @@
-<?php
-include "logic.php";
-?>
+
 <!DOCTYPE html>
 <html>
    <head>
@@ -15,7 +13,7 @@ include "logic.php";
    </style>
    <body>
       <center>
-         <form style="padding-top: 150px;" action="" method="POST">
+         <form style="padding-top: 150px;" action="logic.php" method="POST">
             <fieldset style="width: 400px; height: 300px; background-color: white;">
                <label style="padding-top: 200px;color:red;">Lipa Online</label>
                <br>

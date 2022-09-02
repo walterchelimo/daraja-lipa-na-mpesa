@@ -1,88 +1,79 @@
-<?php
-require 'vendor/autoload.php';
+<?php 
+header("Content-Type:application/json");
+session_start();
 
-use Carbon\Carbon;
-    $phone=$_POST['pnumber'];
-    $amt=$_POST['amt'];
+$config = array(
+    "env"              => "sandbox",
+    "BusinessShortCode"=> "174379",
+    "key"              => "FSCwxOF1aMA8mkIFfNAjAaPnzJySN4pf", 
+    "secret"           => "45zwc7Ls2m1E7Aud",
+    "username"         => "apitest",
+    "TransactionType"  => "CustomerPayBillOnline",
+    "passkey"          => "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919", //Enter your passkey here
+    "CallBackURL"     => "https://festive.risetpos.com//complet.php",
+    "AccountReference" => "CoddinerLmtd",
+    "TransactionDesc"  => "lipa na mpesa" ,
+);
 
+if (isset($_POST['pay'])) {
 
-    stkPush($amt,$phone);
+    $phone = $_POST['pnumber'];
+    $amount = $_POST['amt'];
 
-function lipaNaMpesaPassword()
-{
-    //timestamp
-    $timestamp = Carbon::rawParse('now')->format('YmdHms');
-    //passkey
-    $passKey ="bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
-    $businessShortCOde =174379;
-    //generate password
-    $mpesaPassword = base64_encode($businessShortCOde.$passKey.$timestamp);
+    $phone = (substr($phone, 0, 1) == "+") ? str_replace("+", "", $phone) : $phone;
+    $phone = (substr($phone, 0, 1) == "0") ? preg_replace("/^0/", "254", $phone) : $phone;
+    $phone = (substr($phone, 0, 1) == "7") ? "254{$phone}" : $phone;
 
-    return $mpesaPassword;
-}
+    $access_token = ($config['env']  == "live") ? "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials" : "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"; 
+    $credentials = base64_encode($config['key'] . ':' . $config['secret']); 
     
+    $ch = curl_init($access_token);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Basic " . $credentials]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $result = json_decode($response); 
+    $token = isset($result->{'access_token'}) ? $result->{'access_token'} : "N/A";
 
-   function newAccessToken()
-   {
-       $consumer_key="FSCwxOF1aMA8mkIFfNAjAaPnzJySN4pf";
-       $consumer_secret="45zwc7Ls2m1E7Aud";
-       $credentials = base64_encode($consumer_key.":".$consumer_secret);
-       $url = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+    $timestamp = date("YmdHis");
+    $password  = base64_encode($config['BusinessShortCode'] . "" . $config['passkey'] ."". $timestamp);
 
+    $curl_post_data = array( 
+        "BusinessShortCode" => $config['BusinessShortCode'],
+        "Password" => $password,
+        "Timestamp" => $timestamp,
+        "TransactionType" => $config['TransactionType'],
+        "Amount" => $amount,
+        "PartyA" => $phone,
+        "PartyB" => $config['BusinessShortCode'],
+        "PhoneNumber" => $phone,
+        "CallBackURL" => $config['CallBackURL'],
+        "AccountReference" => $config['AccountReference'],
+        "TransactionDesc" => $config['TransactionDesc'],
+    ); 
 
-       $curl = curl_init();
-       curl_setopt($curl, CURLOPT_URL, $url);
-       curl_setopt($curl, CURLOPT_HTTPHEADER, array("Authorization: Basic ".$credentials,"Content-Type:application/json"));
-       curl_setopt($curl, CURLOPT_HEADER, false);
-       curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-       curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-       $curl_response = curl_exec($curl);
-       $access_token=json_decode($curl_response);
-       curl_close($curl);
-       
-       return $access_token->access_token;
-   }
+    $data_string = json_encode($curl_post_data);
 
+    $endpoint = ($config['env'] == "live") ? "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest" : "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"; 
 
+    $ch = curl_init($endpoint );
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer '.$token,
+        'Content-Type: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $response     = curl_exec($ch);
+    curl_close($ch);
 
-   function stkPush($amount,$phone)
-   {
-       //    $user = $request->user;
-       //    $amount = $request->amount;
-         //$phone =  $request->phone;
-       //    $formatedPhone = substr($phone, 1);//726582228
-       //    $code = "254";
-       //$phoneNumber = $code.$formatedPhone;//254726582228
-      //$phone = $_GET['phone'];
-      
-       
-
-
-       $url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
-       $curl_post_data = [
-            'BusinessShortCode' =>174379,
-            'Password' => lipaNaMpesaPassword(),
-            'Timestamp' => Carbon::rawParse('now')->format('YmdHms'),
-            'TransactionType' => 'CustomerPayBillOnline',
-            'Amount' => $amount,
-            'PartyA' => $phone,
-            'PartyB' => 174379,
-            'PhoneNumber' => $phone,
-            'CallBackURL' => 'https://daraja.test.theairliftsacco.co.ke/complet.php',
-            'AccountReference' => "The Coddiners",
-            'TransactionDesc' => "lipa Na M-PESA"
-        ];
-
-
-       $data_string = json_encode($curl_post_data);
-
-
-       $curl = curl_init();
-       curl_setopt($curl, CURLOPT_URL, $url);
-       curl_setopt($curl, CURLOPT_HTTPHEADER, array('Content-Type:application/json','Authorization:Bearer '.newAccessToken()));
-       curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-       curl_setopt($curl, CURLOPT_POST, true);
-       curl_setopt($curl, CURLOPT_POSTFIELDS, $data_string);
-       $curl_response = curl_exec($curl);
-      // print_r($curl_response);
-   }
+    $result = json_decode($response); 
+    
+    $stkpushed = $result->{'ResponseCode'};
+    if($stkpushed === "0"){
+        echo $result->{'ResponseDescription'};
+    }else{
+        echo $result->{'errorMessage'};
+    }
+}
+?>
